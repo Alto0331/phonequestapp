@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="control_service_label">QuestMirror – contrôle depuis le casque</string>
+    <string name="control_service_description">Permet au Meta Quest d\'envoyer des touchers et les boutons Retour/Accueil à ce téléphone pendant le miroir, et maintient l\'écran à 60 fps.</string>
+</resources>

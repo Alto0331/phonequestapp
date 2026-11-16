@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Panneau de commandes : navigation du téléphone, écran, DeX, puis volume du casque -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:background="#202020"
+    android:paddingTop="8dp"
+    android:paddingBottom="12dp">
+
+    <Button
+        android:id="@+id/button_back"
+        style="@style/PanelButton"
+        android:text="◁" />
+
+    <Button
+        android:id="@+id/button_home"
+        style="@style/PanelButton"
+        android:text="○" />
+
+    <Button
+        android:id="@+id/button_recents"
+        style="@style/PanelButton"
+        android:text="▢" />
+
+    <View
+        android:layout_width="64dp"
+        android:layout_height="1dp"
+        android:layout_marginVertical="6dp"
+        android:background="#505050" />
+
+    <Button
+        android:id="@+id/button_screen"
+        style="@style/PanelButton"
+        android:text="☀" />
+
+    <Button
+        android:id="@+id/button_dex"
+        style="@style/PanelButton"
+        android:text="DeX"
+        android:textSize="16sp" />
+
+    <View
+        android:layout_width="64dp"
+        android:layout_height="1dp"
+        android:layout_marginVertical="6dp"
+        android:background="#505050" />
+
+    <TextView
+        android:id="@+id/volume_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="100 %"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        android:layout_marginBottom="4dp" />
+
+    <com.example.quest.VerticalSlider
+        android:id="@+id/volume_slider"
+        android:layout_width="64dp"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:minHeight="160dp" />
+
+    <Button
+        android:id="@+id/mute_button"
+        style="@style/PanelButton"
+        android:layout_marginTop="4dp"
+        android:text="🔊" />
+
+</LinearLayout>

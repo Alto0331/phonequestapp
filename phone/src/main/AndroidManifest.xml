@@ -3,8 +3,14 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- Requis par Android pour capter le son joué par les applis (pas le micro réel) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
         android:allowBackup="false"
@@ -12,6 +18,25 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         tools:targetApi="34">
+        
+        <service
+            android:name=".MediaProjectionService"
+            android:foregroundServiceType="mediaProjection|microphone"
+            android:exported="false" />
+
+        <!-- Contrôle tactile depuis le Quest (dispatchGesture) + heartbeat 60 fps -->
+        <service
+            android:name=".ControlService"
+            android:label="@string/control_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/control_service" />
+        </service>
         
         <activity
             android:name=".MainActivity"

@@ -20,4 +20,12 @@
         android:layout_height="wrap_content"
         android:text="Démarrer" />
 
+    <!-- Ouvre les réglages d'accessibilité pour activer le contrôle depuis le casque -->
+    <Button
+        android:id="@+id/control_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Activer le contrôle" />
+
 </LinearLayout>
