@@ -1,0 +1,11 @@
+[target.aarch64-linux-android]
+linker = "C:/Users/rouba/AppData/Local/Android/Sdk/build-tools/34.0.0/aarch64-linux-android-ld.exe"
+
+[target.armv7-linux-androideabi]
+linker = "C:/Users/rouba/AppData/Local/Android/Sdk/build-tools/34.0.0/arm-linux-androideabi-ld.exe"
+
+[target.i686-linux-android]
+linker = "C:/Users/rouba/AppData/Local/Android/Sdk/build-tools/34.0.0/i686-linux-android-ld.exe"
+
+[target.x86_64-linux-android]
+linker = "C:/Users/rouba/AppData/Local/Android/Sdk/build-tools/34.0.0/x86_64-linux-android-ld.exe"

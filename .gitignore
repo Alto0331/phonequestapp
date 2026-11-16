@@ -1,0 +1,59 @@
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Android Studio
+*.iml
+.idea/
+*.iws
+*.ipr
+
+# Gradle
+.gradle/
+bin/
+
+# Build outputs
+*.apk
+*.aab
+build/
+
+# NDK
+ndk/
+ndk.zip
+*.so
+*.a
+
+# Android obj & lib
+**/obj/
+**/lib/
+!**/src/main/jniLibs/
+
+# Local properties
+local.properties
+
+# Rust
+rust/target/
+
+# scrcpy
+scrcpy-*.apk
+scrcpy-server
+temp_*.apk
+
+# Temp files
+*.bak
+*.tmp
+
+# Environment
+.env
+
+# Windows
+*.exe
+*.dll
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+
+# Temporary
+*.swp
+*.swo

@@ -1,0 +1,20 @@
+package com.example.phone
+
+import android.content.Context
+import android.graphics.PixelFormat
+import android.hardware.display.DisplayManager
+import android.hardware.display.VirtualDisplay
+import android.media.ImageReader
+import android.media.MediaCodec
+import android.media.MediaCodecInfo
+import android.media.MediaFormat
+import android.media.projection.MediaProjection
+import android.os.Handler
+import android.os.Looper
+import android.util.DisplayMetrics
+import android.util.Log
+import android.view.Surface
+import android.view.WindowManager
+import java.io.OutputStream
+import java.net.ServerSocket
+import java.net.Socket

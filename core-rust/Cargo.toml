@@ -1,0 +1,22 @@
+[package]
+name = "quest-mirror-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Quest-Mirror"]
+description = "Crate Rust client scrcpy - connexion socket, handshake, parsing flux H.265"
+license = "MIT"
+
+[lib]
+name = "quest_mirror_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+once_cell = "1.18"
+
+[profile.release]
+opt-level = 2
+lto = true
+codegen-units = 1
+
+[package.metadata.android]
+build_targets = ["aarch64-linux-android"]

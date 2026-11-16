@@ -1,0 +1,6 @@
+// Monorepo Quest-Mirror
+// Inclut les sous-projets phone (appli compagnon) et quest (appli XR)
+include ':phone'
+include ':quest'
+project(':phone').projectDir = file('phone')
+project(':quest').projectDir = file('quest')
