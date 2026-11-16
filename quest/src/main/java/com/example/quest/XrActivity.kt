@@ -38,8 +38,12 @@ class XrActivity : Activity(), SurfaceHolder.Callback {
             Log.e(TAG, "VideoRenderer erreur: $error")
         }
         videoRenderer.onStatusUpdate = { status ->
+            // Masquer le TextView quand on recoit du vrai flux
+            if (status.contains("Connecte") || status.contains("HEVC")) {
+                runOnUiThread { statusText.visibility = android.view.View.GONE }
+            }
             runOnUiThread {
-                textView.text = status
+                statusText.text = status
             }
             Log.d(TAG, "Status: $status")
         }

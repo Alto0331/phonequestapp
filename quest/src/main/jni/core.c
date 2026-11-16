@@ -1,155 +1,161 @@
+// Quest Mirror - Native JNI implementation
 #include <jni.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include <android/log.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <errno.h>
-#include <android/log.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <string.h>
 
 #define LOG_TAG "CoreNative"
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
-static int socket_fd = -1;
-static int width = 0;
-static int height = 0;
+static int g_socket = -1;
+static int g_width = 0;
+static int g_height = 0;
 
 JNIEXPORT jboolean JNICALL
-Java_com_example_quest_Core_nativeConnect(JNIEnv *env, jobject obj, jstring ip, jint port) {
-    const char *ip_str = (*env)->GetStringUTFChars(env, ip, NULL);
+Java_com_example_quest_Core_nativeConnect(JNIEnv *env, jobject thiz, jstring ip, jint port) {
+    LOGI("nativeConnect to port %d", port);
     
-    LOGI("nativeConnect: %s:%d", ip_str, port);
+    const char *ipStr = (*env)->GetStringUTFChars(env, ip, NULL);
     
-    socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (socket_fd < 0) {
-        LOGE("Erreur socket: %s", strerror(errno));
-        (*env)->ReleaseStringUTFChars(env, ip, ip_str);
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    
+    if (inet_pton(AF_INET, ipStr, &addr.sin_addr) <= 0) {
+        LOGE("Invalid IP");
+        (*env)->ReleaseStringUTFChars(env, ip, ipStr);
         return JNI_FALSE;
     }
-
-    struct sockaddr_in server_addr;
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port);
-    inet_pton(AF_INET, ip_str, &server_addr.sin_addr);
-
-    (*env)->ReleaseStringUTFChars(env, ip, ip_str);
-
-    if (connect(socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        LOGE("Erreur connect: %s (errno=%d)", strerror(errno), errno);
-        close(socket_fd);
-        socket_fd = -1;
+    
+    if (g_socket >= 0) close(g_socket);
+    
+    g_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (g_socket < 0) {
+        LOGE("Socket creation failed");
+        (*env)->ReleaseStringUTFChars(env, ip, ipStr);
         return JNI_FALSE;
     }
-
-    LOGI("Connecté à %s:%d", ip_str, port);
+    
+    struct timeval tv;
+    tv.tv_sec = 5; tv.tv_usec = 0;
+    setsockopt(g_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+    setsockopt(g_socket, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof(tv));
+    
+    if (connect(g_socket, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        LOGE("Connection failed");
+        close(g_socket);
+        g_socket = -1;
+        (*env)->ReleaseStringUTFChars(env, ip, ipStr);
+        return JNI_FALSE;
+    }
+    
+    (*env)->ReleaseStringUTFChars(env, ip, ipStr);
+    LOGI("Connected");
     return JNI_TRUE;
 }
 
 JNIEXPORT jboolean JNICALL
-Java_com_example_quest_Core_nativeHandshake(JNIEnv *env, jobject obj) {
-    LOGI("nativeHandshake: début");
+Java_com_example_quest_Core_nativeHandshake(JNIEnv *env, jobject thiz) {
+    LOGI("nativeHandshake");
+    if (g_socket < 0) return JNI_FALSE;
     
-    if (socket_fd < 0) {
-        LOGE("Socket non connecté");
+    // Envoyer la version serveur (4 bytes)
+    uint32_t version = htonl(2);
+    if (send(g_socket, &version, 4, 0) != 4) {
+        LOGE("Send version failed");
         return JNI_FALSE;
     }
-
-    char buf[512];
-    ssize_t n;
-
-    // Envoyer la requête de handshake scrcpy
-    char handshake[19] = {0};
-    handshake[0] = 0x01;
-    handshake[1] = 0x00;
-    handshake[2] = 0x00;
-    handshake[3] = 0x00;
-
-    // Écrire la taille du payload
-    uint32_t size = htonl(15);
-    memcpy(handshake + 4, &size, 4);
-
-    if (write(socket_fd, handshake, 19) < 0) {
-        LOGE("Erreur write handshake: %s", strerror(errno));
+    
+    // Envoyer les infos device (largeur, hauteur, dpi, flags)
+    uint32_t deviceInfo[] = {htonl(g_width), htonl(g_height), 0, 0};
+    if (send(g_socket, deviceInfo, 16, 0) != 16) {
+        LOGE("Send device info failed");
         return JNI_FALSE;
     }
-
-    LOGI("Handshake envoyé");
-
-    // Lire la réponse du serveur
-    n = read(socket_fd, buf, sizeof(buf));
-    if (n <= 0) {
-        LOGE("Erreur read: %s", strerror(errno));
+    
+    // Lire la réponse client (8 bytes: version + flags)
+    uint32_t clientInfo[2];
+    if (recv(g_socket, clientInfo, 8, 0) != 8) {
+        LOGE("Recv client info failed");
         return JNI_FALSE;
     }
-
-    LOGI("Handshake reçu: %zd bytes", n);
-
-    // Lire width et height depuis les 4 premiers bytes (little-endian)
-    if (n >= 4) {
-        width = (buf[0] & 0xFF) | ((buf[1] & 0xFF) << 8);
-        height = (buf[2] & 0xFF) | ((buf[3] & 0xFF) << 8);
-        LOGI("Résolution: %d x %d", width, height);
+    
+    // Envoyer les paramètres (maxSize, bitrate, fps)
+    uint32_t params[] = {0, htonl(8000000), htonl(30)};
+    if (send(g_socket, params, 12, 0) != 12) {
+        LOGE("Send params failed");
+        return JNI_FALSE;
     }
-
+    
+    // Envoyer le format vidéo (H.265)
+    uint8_t videoFormat = 0x01;
+    if (send(g_socket, &videoFormat, 1, 0) != 1) return JNI_FALSE;
+    
+    // Envoyer latency
+    uint8_t latency = 0;
+    if (send(g_socket, &latency, 1, 0) != 1) return JNI_FALSE;
+    
+    // Envoyer flags
+    uint32_t flags = 0;
+    if (send(g_socket, &flags, 4, 0) != 4) return JNI_FALSE;
+    
+    // Lire les params vidéo du client (16 bytes)
+    uint32_t videoParams[4];
+    if (recv(g_socket, videoParams, 16, 0) != 16) {
+        LOGE("Recv video params failed");
+        return JNI_FALSE;
+    }
+    
+    // Envoyer la configuration codec (8 bytes: header)
+    uint8_t codecConfig[8] = {0};
+    if (send(g_socket, codecConfig, 8, 0) != 8) {
+        LOGE("Send codec config failed");
+        return JNI_FALSE;
+    }
+    
+    LOGI("Handshake OK");
     return JNI_TRUE;
 }
 
 JNIEXPORT jint JNICALL
-Java_com_example_quest_Core_nativeGetWidth(JNIEnv *env, jobject obj) {
-    LOGI("nativeGetWidth: %d", width);
-    return (jint)width;
+Java_com_example_quest_Core_nativeGetWidth(JNIEnv *env, jobject thiz) {
+    return g_width;
 }
 
 JNIEXPORT jint JNICALL
-Java_com_example_quest_Core_nativeGetHeight(JNIEnv *env, jobject obj) {
-    LOGI("nativeGetHeight: %d", height);
-    return (jint)height;
+Java_com_example_quest_Core_nativeGetHeight(JNIEnv *env, jobject thiz) {
+    return g_height;
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_quest_Core_nativeDisconnect(JNIEnv *env, jobject obj) {
+Java_com_example_quest_Core_nativeDisconnect(JNIEnv *env, jobject thiz) {
     LOGI("nativeDisconnect");
-    if (socket_fd >= 0) {
-        close(socket_fd);
-        socket_fd = -1;
-    }
-    width = 0;
-    height = 0;
+    if (g_socket >= 0) close(g_socket);
+    g_socket = -1;
 }
 
-// Nouvelle fonction pour lire des données depuis le socket
 JNIEXPORT jint JNICALL
-Java_com_example_quest_Core_nativeReadFrame(JNIEnv *env, jobject obj, jbyteArray buffer, jint offset, jint length) {
-    if (socket_fd < 0) {
-        LOGE("Socket non connecté");
-        return -1;
-    }
-    
-    if (length <= 0) {
-        LOGE("Longueur invalide: %d", length);
-        return -1;
-    }
+Java_com_example_quest_Core_nativeReadFrame(JNIEnv *env, jobject thiz, jbyteArray buffer, jint offset, jint length) {
+    if (g_socket < 0) return -1;
     
     jbyte *buf = (*env)->GetByteArrayElements(env, buffer, NULL);
+    jsize bytesRead = recv(g_socket, buf + offset, length, 0);
+    (*env)->ReleaseByteArrayElements(env, buffer, buf, 0);
     
-    ssize_t n = read(socket_fd, buf + offset, length);
-    
-    (*env)->ReleaseByteArrayElements(env, buffer, buf, JNI_ABORT);
-    
-    if (n < 0) {
-        LOGE("Erreur read frame: %s", strerror(errno));
+    if (bytesRead < 0) {
+        LOGE("Recv failed, errno=%d", errno);
         return -1;
     }
-    
-    if (n == 0) {
-        LOGI("Connection closed by peer");
+    if (bytesRead == 0) {
+        LOGI("Connection closed by server");
         return 0;
     }
     
-    LOGD("Lecture de %zd bytes", n);
-    return (jint)n;
+    return bytesRead;
 }
