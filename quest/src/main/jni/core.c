@@ -56,7 +56,7 @@ Java_com_example_quest_Core_nativeConnect(JNIEnv *env, jobject thiz, jstring ip,
     }
     
     (*env)->ReleaseStringUTFChars(env, ip, ipStr);
-    LOGI("Connected");
+    LOGI("Connected to server");
     return JNI_TRUE;
 }
 
@@ -65,61 +65,85 @@ Java_com_example_quest_Core_nativeHandshake(JNIEnv *env, jobject thiz) {
     LOGI("nativeHandshake");
     if (g_socket < 0) return JNI_FALSE;
     
-    // Envoyer la version serveur (4 bytes)
-    uint32_t version = htonl(2);
-    if (send(g_socket, &version, 4, 0) != 4) {
-        LOGE("Send version failed");
+    // Lire la version serveur (4 bytes)
+    uint32_t version;
+    if (recv(g_socket, &version, 4, 0) != 4) {
+        LOGE("Recv version failed");
+        return JNI_FALSE;
+    }
+    LOGI("Server version: %u", ntohl(version));
+    
+    // Lire le nom du device (32 bytes)
+    char deviceName[33];
+    if (recv(g_socket, deviceName, 32, 0) != 32) {
+        LOGE("Recv device name failed");
+        return JNI_FALSE;
+    }
+    deviceName[32] = '\0';
+    LOGI("Device name: %s", deviceName);
+    
+    // Lire les infos device (largeur, hauteur, dpi, flags)
+    uint32_t deviceInfo[4];
+    if (recv(g_socket, deviceInfo, 16, 0) != 16) {
+        LOGE("Recv device info failed");
+        return JNI_FALSE;
+    }
+    g_width = ntohl(deviceInfo[0]);
+    g_height = ntohl(deviceInfo[1]);
+    LOGI("Device: %dx%d", g_width, g_height);
+    
+    // Envoyer la réponse client (8 bytes: version + flags)
+    uint32_t clientInfo[] = {htonl(2), 0};
+    if (send(g_socket, clientInfo, 8, 0) != 8) {
+        LOGE("Send client info failed");
         return JNI_FALSE;
     }
     
-    // Envoyer les infos device (largeur, hauteur, dpi, flags)
-    uint32_t deviceInfo[] = {htonl(g_width), htonl(g_height), 0, 0};
-    if (send(g_socket, deviceInfo, 16, 0) != 16) {
-        LOGE("Send device info failed");
+    // Lire les paramètres vidéo (maxSize, bitrate, fps)
+    uint32_t params[3];
+    if (recv(g_socket, params, 12, 0) != 12) {
+        LOGE("Recv params failed");
+        return JNI_FALSE;
+    }
+    LOGI("Params: maxSize=%u, bitrate=%u, fps=%u", ntohl(params[0]), ntohl(params[1]), ntohl(params[2]));
+    
+    // Lire le format vidéo
+    uint8_t videoFormat;
+    if (recv(g_socket, &videoFormat, 1, 0) != 1) {
+        LOGE("Recv video format failed");
+        return JNI_FALSE;
+    }
+    LOGI("Video format: 0x%02x", videoFormat);
+    
+    // Lire latency
+    uint8_t latency;
+    if (recv(g_socket, &latency, 1, 0) != 1) {
+        LOGE("Recv latency failed");
         return JNI_FALSE;
     }
     
-    // Lire la réponse client (8 bytes: version + flags)
-    uint32_t clientInfo[2];
-    if (recv(g_socket, clientInfo, 8, 0) != 8) {
-        LOGE("Recv client info failed");
+    // Lire flags
+    uint32_t flags;
+    if (recv(g_socket, &flags, 4, 0) != 4) {
+        LOGE("Recv flags failed");
         return JNI_FALSE;
     }
     
-    // Envoyer les paramètres (maxSize, bitrate, fps)
-    uint32_t params[] = {0, htonl(8000000), htonl(30)};
-    if (send(g_socket, params, 12, 0) != 12) {
-        LOGE("Send params failed");
+    // Envoyer les params vidéo au serveur (16 bytes)
+    uint32_t videoParams[4] = {0};
+    if (send(g_socket, videoParams, 16, 0) != 16) {
+        LOGE("Send video params failed");
         return JNI_FALSE;
     }
     
-    // Envoyer le format vidéo (H.265)
-    uint8_t videoFormat = 0x01;
-    if (send(g_socket, &videoFormat, 1, 0) != 1) return JNI_FALSE;
-    
-    // Envoyer latency
-    uint8_t latency = 0;
-    if (send(g_socket, &latency, 1, 0) != 1) return JNI_FALSE;
-    
-    // Envoyer flags
-    uint32_t flags = 0;
-    if (send(g_socket, &flags, 4, 0) != 4) return JNI_FALSE;
-    
-    // Lire les params vidéo du client (16 bytes)
-    uint32_t videoParams[4];
-    if (recv(g_socket, videoParams, 16, 0) != 16) {
-        LOGE("Recv video params failed");
+    // Lire la configuration codec (8 bytes)
+    uint8_t codecConfig[8];
+    if (recv(g_socket, codecConfig, 8, 0) != 8) {
+        LOGE("Recv codec config failed");
         return JNI_FALSE;
     }
     
-    // Envoyer la configuration codec (8 bytes: header)
-    uint8_t codecConfig[8] = {0};
-    if (send(g_socket, codecConfig, 8, 0) != 8) {
-        LOGE("Send codec config failed");
-        return JNI_FALSE;
-    }
-    
-    LOGI("Handshake OK");
+    LOGI("Handshake OK: %dx%d", g_width, g_height);
     return JNI_TRUE;
 }
 

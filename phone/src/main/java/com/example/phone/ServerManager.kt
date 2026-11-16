@@ -98,33 +98,56 @@ class ServerManager(private val context: Context) {
 
     private fun performHandshake(): Boolean {
         try {
-            val versionBuf = ByteArray(4)
-            val inputStream = clientSocket?.getInputStream()
-            if (inputStream?.read(versionBuf, 0, 4) != 4) return false
+            // Envoyer la version serveur et les infos device
+            val deviceName = "QuestMirrorDevice"
+            val deviceNameBytes = deviceName.toByteArray(Charsets.UTF_8)
+            val paddedDeviceName = deviceNameBytes.copyOf(32)
             
-            dataOutputStream?.writeInt(2)
-            dataOutputStream?.writeInt(VIDEO_WIDTH)
-            dataOutputStream?.writeInt(VIDEO_HEIGHT)
-            dataOutputStream?.writeInt(0)
+            dataOutputStream?.writeInt(2)  // Version serveur
+            dataOutputStream?.write(paddedDeviceName, 0, 32)  // Nom device
+            dataOutputStream?.writeInt(VIDEO_WIDTH)  // Largeur
+            dataOutputStream?.writeInt(VIDEO_HEIGHT)  // Hauteur
+            dataOutputStream?.writeInt(0)  // DPI
+            dataOutputStream?.writeInt(0)  // Flags
             
+            // Lire la réponse client (8 bytes: version + flags)
             val clientResponse = ByteArray(8)
-            if (inputStream?.read(clientResponse, 0, 8) != 8) return false
+            val inputStream = clientSocket?.getInputStream()
+            if (inputStream?.read(clientResponse, 0, 8) != 8) {
+                Log.e(TAG, "Handshake: réponse client non lue")
+                return false
+            }
             
-            dataOutputStream?.writeInt(0)
-            dataOutputStream?.writeInt(BIT_RATE)
-            dataOutputStream?.writeInt(FRAME_RATE)
-            dataOutputStream?.writeByte(0x01)
-            dataOutputStream?.writeByte(0)
-            dataOutputStream?.writeInt(0)
+            // Envoyer les paramètres vidéo
+            dataOutputStream?.writeInt(0)  // maxSize
+            dataOutputStream?.writeInt(BIT_RATE)  // bitrate
+            dataOutputStream?.writeInt(FRAME_RATE)  // fps
             
+            // Envoyer le format vidéo (H.265)
+            dataOutputStream?.writeByte(0x01)  // HEVC
+            dataOutputStream?.writeByte(0)  // latency
+            dataOutputStream?.writeInt(0)  // flags
+            
+            // Lire les params vidéo du client (16 bytes)
             val videoParams = ByteArray(16)
-            if (inputStream?.read(videoParams, 0, 16) != 16) return false
+            if (inputStream?.read(videoParams, 0, 16) != 16) {
+                Log.e(TAG, "Handshake: params vidéo non lues")
+                return false
+            }
             
+            // Envoyer la configuration codec (8 bytes)
             val codecConfig = byteArrayOf(0, 0, 0, 0, 0, 0, 0, 0)
             dataOutputStream?.write(codecConfig, 0, 8)
             
-            Log.i(TAG, "Handshake reussi")
-            onStatusUpdate?.invoke("Connecte: ${VIDEO_WIDTH}x${VIDEO_HEIGHT}")
+            Log.i(TAG, "Handshake réussi: ${VIDEO_WIDTH}x${VIDEO_HEIGHT}")
+            onStatusUpdate?.invoke("Connecté: ${VIDEO_WIDTH}x${VIDEO_HEIGHT}")
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "Erreur handshake", e)
+            return false
+        }
+    }
+
             return true
         } catch (e: Exception) {
             Log.e(TAG, "Erreur handshake", e)
